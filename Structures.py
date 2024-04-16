@@ -5,6 +5,7 @@ from scipy.special import digamma, betaln
 import numpy as np
 import matplotlib.pyplot as plt
 
+# From memory this is used to intervalise a function, as most will not play nicely with intervals
 def _spsconvert(theta, func):
     if isinstance(theta, Interval):
         C = Interval(func(theta.left), func(theta.right))
@@ -14,9 +15,11 @@ def _spsconvert(theta, func):
         C = func(theta)
     return C
 
+# simple function for calculating a gradient
 def grad(x0, x1, d):
     return (x1-x0)/d
 
+# Super simple implementation of Newton-Raphson for one dimension that estimates the gradient
 def NewtonRaphson(func, x0, tol = 1e-6, gap = 1e-9):
     while True:
         f0 = func(x0)
@@ -25,12 +28,15 @@ def NewtonRaphson(func, x0, tol = 1e-6, gap = 1e-9):
         x0 = x1
     return x1
 
+# Gets the point of intersection between two beta distributions for use in the k-needs-n case
 def betaintersect(a, b1, b2):
     return 1-(betafun(a, b1)/betafun(a, b2))**(1/(b1-b2))
 
+# Calculates the right side of the maximum possibility region for the k-needs-n case
 def rside(b, k):
     return 1-np.exp(digamma(b-k+1))/np.exp(digamma(b+1))
 
+# I think this is used to allow evaluating the possibility of interval values on a structure
 def possibilitytool(theta, func, core = None):
     target = lambda t: _spsconvert(t, lambda theta: func(theta))
     if not(isinstance(theta, (list, tuple, np.ndarray))):
@@ -51,7 +57,7 @@ def possibilitytool(theta, func, core = None):
     return C
 
 
-# Clopper-Pearson implementation. Perhaps redundant due to pba implementation.
+# Clopper-Pearson implementation. Perhaps redundant due to more comprehensive pba implementation.
 class ClopperPearson():
     # Define a structure with left and right bounds based on the observed binary data.
     def __init__(self, k, n):
@@ -137,6 +143,7 @@ class ClopperPearson():
         plt.gca().set_xlim([0,1])
         if show: plt.show()
 
+# Returns possibility structure for the mean of a normally distributed data set
 class NormTPivot():
     def __init__(self, data, origin = 0.5):
         self.data = data
@@ -154,6 +161,7 @@ class NormTPivot():
         aL = self.origin-(1-alpha)*self.origin
         return Interval(self.Dist.ppf(aL), self.Dist.ppf(aU))
 
+# Returns a possibiltiy structure for the probability driving a k-of-n data set
 class BalchStruct():
     def __init__(self, k, n, precision = 0.0001):
         self.k = k
@@ -199,6 +207,7 @@ class BalchStruct():
                 r = max(self.possibility(theta.left), self.possibility(theta.right))
         return r
     
+    # This can be a bit inefficient
     def cut(self, alpha, precision = None):
         if precision is None:
             precision = self.precision
@@ -264,6 +273,7 @@ class BalchStruct():
                 RBound = RBound.right
         return Interval(LBound, RBound)
 
+# Returns a possibiltiy structure for the probability driving a k-needs-n data set
 class KNBalchStruct(BalchStruct):
     def __init__(self, k, n, maxn = None, precision = 0.0001):
         if maxn is None:
@@ -320,7 +330,8 @@ class KNBalchStruct(BalchStruct):
         else:
             L = NewtonRaphson(lambda x: self.possibility(x)-alpha, self.WallInts[self.n-self.k+L+1], gap = 1e-9)
         return Interval(L, R)
-        
+
+# Returns a possibiltiy distribution for the next value a random variable will take, not really sure how useful this is though. I think you can do much better than this.
 class ECDFStruct():
     def __init__(self, data, origin = 0, lbound = None, rbound = None):
         self.data = np.sort(data) # Maybe unnecessary? Useful to get it into a numpy array
